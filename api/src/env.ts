@@ -201,6 +201,8 @@ const allowedEnvironmentVars = [
 	// flows
 	'FLOWS_EXEC_ALLOWED_MODULES',
 	'FLOWS_ENV_ALLOW_LIST',
+	'ACTIVITY_RETENTION',
+	'REVISIONS_RETENTION',
 	// websockets
 	'WEBSOCKETS_.+',
 ].map((name) => new RegExp(`^${name}$`));
@@ -317,6 +319,9 @@ const defaults: Record<string, any> = {
 
 	FLOWS_EXEC_ALLOWED_MODULES: false,
 	FLOWS_ENV_ALLOW_LIST: false,
+
+	ACTIVITY_RETENTION: '180 days',
+	REVISIONS_RETENTION: '90 days',
 
 	PRESSURE_LIMITER_ENABLED: true,
 	PRESSURE_LIMITER_SAMPLE_INTERVAL: 250,

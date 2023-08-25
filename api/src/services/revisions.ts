@@ -1,3 +1,6 @@
+import { adjustDate } from '@directus/utils';
+import getDatabase from '../database/index.js';
+import env from '../env.js';
 import { ForbiddenError, InvalidPayloadError } from '../errors/index.js';
 import type { AbstractServiceOptions, Item, MutationOptions, PrimaryKey } from '../types/index.js';
 import { ItemsService } from './items.js';
@@ -21,6 +24,16 @@ export class RevisionsService extends ItemsService {
 		});
 
 		await service.updateOne(revision['item'], revision['data']);
+	}
+
+	async truncate() {
+		if (!env['REVISIONS_RETENTION'] || env['REVISIONS_RETENTION'] === 'infinite') return;
+		const db = this.knex || getDatabase();
+		const oldest = adjustDate(new Date(), '-' + env['REVISIONS_RETENTION']);
+		if (!oldest) throw new Error('Invalid REVISIONS_RETENTION configured');
+		const oldestActivity = await db.select('id').from('directus_activity').where('timestamp', '<=', oldest).first();
+		if (!oldestActivity) return;
+		await db('directus_revisions').delete().where('activity', '<=', oldestActivity.id);
 	}
 
 	private setDefaultOptions(opts?: MutationOptions): MutationOptions {

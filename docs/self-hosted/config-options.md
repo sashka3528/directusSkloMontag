@@ -208,6 +208,8 @@ prefixing the value with `{type}:`. The following types are available:
 | `QUERY_LIMIT_DEFAULT`      | The default query limit used when not defined in the API request.                                          | `100`                        |
 | `QUERY_LIMIT_MAX`          | The maximum query limit accepted on API requests.                                                          | `-1`                         |
 | `ROBOTS_TXT`               | What the `/robots.txt` endpoint should return                                                              | `User-agent: *\nDisallow: /` |
+| `ACTIVITY_RETENTION`       | How long to save activity logs for. Set to `infinite` to keep records forever                              | `180 days`                   |
+| `REVISIONS_RETENTION`      | How long to save revisions history for. Set to `infinite` to keep records forever                          | `90 days`                    |
 
 <sup>[1]</sup> The PUBLIC_URL value is used for things like OAuth redirects, forgot-password emails, and logos that
 needs to be publicly available on the internet.
