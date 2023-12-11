@@ -1,0 +1,42 @@
+{
+	"name": "@directus/sdk-schema-generator",
+	"version": "0.0.0",
+	"description": "TypeScript Schema Generator for Directus",
+	"homepage": "https://directus.io",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/directus/directus.git",
+		"directory": "packages/sdk-schema-generator"
+	},
+	"funding": "https://github.com/directus/directus?sponsor=1",
+	"license": "BUSL-1.1",
+	"author": "Tim de Heiden <tim@directus.io>",
+	"type": "module",
+	"exports": {
+		".": "./dist/index.js",
+		"./src/cli": "./dist/cli.js",
+		"./package.json": "./package.json"
+	},
+	"main": "dist/index.js",
+	"bin": {
+		"directus-sdk-schema": "cli.js"
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "tsup src/index.ts src/cli.ts --format=esm --dts",
+		"dev": "tsup src/index.ts src/cli.ts --format=esm --dts --watch",
+		"cli": "node cli.js"
+	},
+	"dependencies": {
+		"commander": "10.0.1"
+	},
+	"devDependencies": {
+		"@directus/tsconfig": "workspace:*",
+		"@directus/types": "workspace:*",
+		"@types/node": "18.16.12",
+		"typescript": "5.2.2",
+		"tsup": "7.2.0"
+	}
+}
