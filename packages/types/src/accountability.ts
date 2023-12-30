@@ -16,4 +16,5 @@ export type Accountability = {
 	ip?: string | null;
 	userAgent?: string;
 	origin?: string;
+	ip_access?: string;
 };

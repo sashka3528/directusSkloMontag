@@ -1,9 +1,11 @@
 import { InvalidCredentialsError } from '@directus/errors';
 import type { Accountability } from '@directus/types';
+import { getCache } from '../cache.js';
 import getDatabase from '../database/index.js';
 import { useEnv } from '../env.js';
 import isDirectusJWT from './is-directus-jwt.js';
 import { verifyAccessJWT } from './jwt.js';
+import { getMilliseconds } from './get-milliseconds.js';
 
 export async function getAccountabilityForToken(
 	token?: string | null,
@@ -32,18 +34,33 @@ export async function getAccountabilityForToken(
 			if (payload.share_scope) accountability.share_scope = payload.share_scope;
 			if (payload.id) accountability.user = payload.id;
 		} else {
-			// Try finding the user with the provided token
-			const database = getDatabase();
+			const { cache } = getCache();
+			let user = cache ? await cache.get(`token_access:${token}`) : null;
 
-			const user = await database
-				.select('directus_users.id', 'directus_users.role', 'directus_roles.admin_access', 'directus_roles.app_access')
-				.from('directus_users')
-				.leftJoin('directus_roles', 'directus_users.role', 'directus_roles.id')
-				.where({
-					'directus_users.token': token,
-					status: 'active',
-				})
-				.first();
+			if (!user) {
+				// Try finding the user with the provided token
+				const database = getDatabase();
+
+				user = await database
+					.select(
+						'directus_users.id',
+						'directus_users.role',
+						'directus_roles.admin_access',
+						'directus_roles.app_access',
+						'directus_roles.ip_access',
+					)
+					.from('directus_users')
+					.leftJoin('directus_roles', 'directus_users.role', 'directus_roles.id')
+					.where({
+						'directus_users.token': token,
+						status: 'active',
+					})
+					.first();
+
+				if (cache) {
+					cache.set(`token_access:${token}`, user, getMilliseconds(env['CACHE_ACCESS_TTL']));
+				}
+			}
 
 			if (!user) {
 				throw new InvalidCredentialsError();
@@ -53,6 +70,7 @@ export async function getAccountabilityForToken(
 			accountability.role = user.role;
 			accountability.admin = user.admin_access === true || user.admin_access == 1;
 			accountability.app = user.app_access === true || user.app_access == 1;
+			accountability.ip_access = user.ip_access || '';
 		}
 	}
 
