@@ -14,6 +14,12 @@ export type Avatar = {
 	id: string;
 };
 
+export type UserOnboarding = {
+	primary_skillset: string | null;
+	wants_emails: boolean;
+	retry_transmission: boolean;
+};
+
 export type User = {
 	id: string;
 	status: 'draft' | 'invited' | 'active' | 'suspended' | 'archived';
@@ -41,4 +47,5 @@ export type User = {
 	location: string | null;
 	tags: string[] | null;
 	email_notifications: boolean;
+	onboarding: UserOnboarding | null;
 };

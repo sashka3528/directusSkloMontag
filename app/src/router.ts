@@ -3,6 +3,7 @@ import { hydrate } from '@/hydrate';
 import AcceptInviteRoute from '@/routes/accept-invite.vue';
 import LoginRoute from '@/routes/login/login.vue';
 import LogoutRoute from '@/routes/logout.vue';
+import OnboardingRoute from '@/routes/onboarding/onboarding.vue';
 import PrivateNotFoundRoute from '@/routes/private-not-found.vue';
 import ResetPasswordRoute from '@/routes/reset-password/reset-password.vue';
 import ShareRoute from '@/routes/shared/shared.vue';
@@ -75,6 +76,11 @@ export const defaultRoutes: RouteRecordRaw[] = [
 		path: '/:_(.+)+',
 		component: PrivateNotFoundRoute,
 	},
+	{
+		name: 'onboarding',
+		path: '/onboarding',
+		component: OnboardingRoute,
+	},
 ];
 
 export const router = createRouter({
@@ -146,6 +152,15 @@ export const onBeforeEach: NavigationGuard = async (to) => {
 				}
 			} else if (userStore.currentUser.tfa_secret !== null) {
 				return userStore.currentUser.last_page || '/login';
+			}
+
+			if (
+				to.name !== 'onboarding' &&
+				serverStore.info.showAdminOnboarding &&
+				userStore.currentUser.role.admin_access &&
+				!userStore.currentUser.onboarding
+			) {
+				return { name: 'onboarding' };
 			}
 		}
 	}

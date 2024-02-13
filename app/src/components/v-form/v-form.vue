@@ -11,15 +11,11 @@ import { computed, onBeforeUpdate, provide, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { MenuOptions } from './form-field-menu.vue';
 import FormField from './form-field.vue';
-import type { FormField as TFormField } from './types';
+import type { FieldValues, FormField as TFormField } from './types';
 import { getFormFields } from './utils/get-form-fields';
 import { updateFieldWidths } from './utils/update-field-widths';
 import { updateSystemDivider } from './utils/update-system-divider';
 import ValidationErrors from './validation-errors.vue';
-
-type FieldValues = {
-	[field: string]: any;
-};
 
 const props = withDefaults(
 	defineProps<{

@@ -107,6 +107,8 @@ export class ServerService {
 			}
 
 			info['version'] = version;
+			info['showAdminOnboarding'] = toBoolean(env['SHOW_ADMIN_ONBOARDING']);
+			info['telemetry'] = toBoolean(env['TELEMETRY']);
 		}
 
 		return info;

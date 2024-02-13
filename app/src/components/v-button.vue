@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import { RouteLocationRaw, useRoute, useLink } from 'vue-router';
-import { useSizeClass, useGroupable } from '@directus/composables';
+import { useGroupable, useSizeClass } from '@directus/composables';
 import { isEqual, isNil } from 'lodash';
+import { computed } from 'vue';
+import { RouteLocationRaw, useLink, useRoute } from 'vue-router';
 
 interface Props {
 	/** Automatically focuses on the button */
 	autofocus?: boolean;
 	/** Styling of the button */
-	kind?: 'normal' | 'info' | 'success' | 'warning' | 'danger';
+	kind?: 'normal' | 'info' | 'success' | 'warning' | 'danger' | 'link';
 	/** Stretches the button to it's maximal width */
 	fullWidth?: boolean;
 	/** Enable rounded corners */
@@ -228,6 +228,14 @@ async function onClick(event: MouseEvent) {
 	--v-button-background-color: var(--theme--danger);
 	--v-button-background-color-hover: var(--danger-125);
 	--v-button-background-color-active: var(--theme--danger);
+}
+
+.link {
+	--v-button-color: var(--theme--foreground);
+	--v-button-color-hover: var(--theme--foreground-accent);
+	--v-button-background-color: transparent;
+	--v-button-background-color-hover: transparent;
+	--v-button-background-color-active: transparent;
 }
 
 .secondary {

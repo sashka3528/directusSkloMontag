@@ -31,6 +31,10 @@ export type CustomAspectRatio = {
 	value: number;
 };
 
+export type SettingsOnboarding = {
+	project_use_case: string | null;
+};
+
 export type Settings = {
 	id: 1;
 	project_name: string;
@@ -58,4 +62,5 @@ export type Settings = {
 	default_theme_dark: string | null;
 	theme_light_overrides: Record<string, unknown> | null;
 	theme_dark_overrides: Record<string, unknown> | null;
+	onboarding: SettingsOnboarding | null;
 };

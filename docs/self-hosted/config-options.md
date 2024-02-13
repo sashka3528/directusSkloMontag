@@ -1015,6 +1015,16 @@ Directus collects little and anonymized data about your environment.
 | `TELEMETRY_URL`           | URL that the usage report is submitted to.                        | `https://telemetry.directus.io/` |
 | `TELEMETRY_AUTHORIZATION` | Optional authorization header value.                              | --                               |
 
+## Onboarding
+
+New admin users are presented with an onboarding screen to help them quickly set up their project and user profile. They
+may optionally join our mailing list to receive product news/updates if they'd like. The onboarding process can easily
+be opted out with the following environment variable:
+
+| Variable                | Description                                             | Default Value |
+| ----------------------- | ------------------------------------------------------- | ------------- |
+| `SHOW_ADMIN_ONBOARDING` | Show new admins the onboarding screen after logging in. | `true`        |
+
 ## Limits & Optimizations
 
 Allows you to configure hard technical limits, to prevent abuse and optimize for your particular server environment.
