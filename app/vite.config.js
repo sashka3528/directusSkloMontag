@@ -16,7 +16,7 @@ import UnheadVite from '@unhead/addons/vite';
 import vue from '@vitejs/plugin-vue';
 import fs from 'node:fs';
 import path from 'node:path';
-import { searchForWorkspaceRoot } from 'vite';
+import { searchForWorkspaceRoot, splitVendorChunkPlugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 
 const API_PATH = path.join('..', 'api');
@@ -33,6 +33,7 @@ export default defineConfig({
 				return data === null ? {} : undefined;
 			},
 		}),
+		splitVendorChunkPlugin(),
 		{
 			name: 'watch-directus-dependencies',
 			configureServer: (server) => {
@@ -43,6 +44,23 @@ export default defineConfig({
 			},
 		},
 	],
+	build: {
+		rollupOptions: {
+			output: {
+				manualChunks(id) {
+					/*
+					 * PNPM modules will be returned as a full resolved path, so doing an includes rather
+					 * than equality check allows this to work ish.
+					 */
+					if (id.includes('lodash')) return 'lodash';
+					if (id.includes('tinymce')) return 'tinymce';
+					if (id.includes('@fullcalendar')) return 'fullcalendar';
+					if (id.includes('@editorjs')) return 'editorjs';
+					if (id.includes('apexcharts')) return 'apexcharts';
+				},
+			},
+		},
+	},
 	resolve: {
 		alias: [{ find: '@', replacement: path.resolve(__dirname, 'src') }],
 	},
