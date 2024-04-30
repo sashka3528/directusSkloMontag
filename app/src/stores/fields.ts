@@ -1,4 +1,3 @@
-import api from '@/api';
 import { i18n } from '@/lang';
 import { useCollectionsStore } from '@/stores/collections';
 import { useRelationsStore } from '@/stores/relations';
@@ -7,11 +6,21 @@ import { translate as translateLiteral } from '@/utils/translate-literal';
 import { translate } from '@/utils/translate-object-values';
 import { unexpectedError } from '@/utils/unexpected-error';
 import formatTitle from '@directus/format-title';
-import { DeepPartial, Field, FieldRaw, Relation } from '@directus/types';
+import { Field, FieldRaw, Relation } from '@directus/types';
 import { isEqual, isNil, merge, omit, orderBy } from 'lodash';
 import { nanoid } from 'nanoid';
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
+import {
+	readFields as readFieldsCmd,
+	createField as createFieldCmd,
+	updateField as updateFieldCmd,
+	updateFields as updateFieldsCmd,
+	deleteField as deleteFieldCmd,
+	type DirectusField,
+	type NestedPartial,
+} from '@directus/sdk';
+import sdk from '@/sdk';
 
 type HydrateOptions = {
 	/**
@@ -89,9 +98,8 @@ export const useFieldsStore = defineStore('fieldsStore', () => {
 	};
 
 	async function hydrate(options?: HydrateOptions) {
-		const fieldsResponse = await api.get<any>(`/fields`);
+		const fieldsRaw = await sdk.request<FieldRaw[]>(readFieldsCmd());
 
-		const fieldsRaw: FieldRaw[] = fieldsResponse.data.data;
 		fields.value = [...fieldsRaw.map(parseField), fakeFilesField];
 		if (options?.skipTranslation !== true) translateFields();
 	}
@@ -162,7 +170,7 @@ export const useFieldsStore = defineStore('fieldsStore', () => {
 		});
 	}
 
-	async function upsertField(collection: string, field: string, values: DeepPartial<Field>) {
+	async function upsertField(collection: string, field: string, values: NestedPartial<DirectusField<any>>) {
 		const existing = getField(collection, field);
 
 		// Strip out auto-generated fields the app might've added
@@ -177,15 +185,15 @@ export const useFieldsStore = defineStore('fieldsStore', () => {
 		}
 	}
 
-	async function createField(collectionKey: string, newField: DeepPartial<Field>) {
+	async function createField(collectionKey: string, newField: NestedPartial<DirectusField<any>>) {
 		const stateClone = [...fields.value];
 
 		// Save to API, and update local state again to make sure everything is in sync with the
 		// API
 		try {
-			const response = await api.post<{ data: Field }>(`/fields/${collectionKey}`, newField);
+			const result = await sdk.request<FieldRaw>(createFieldCmd(collectionKey, newField));
 
-			const createdField = parseField(response.data.data);
+			const createdField = parseField(result);
 
 			fields.value = [...fields.value, createdField];
 
@@ -195,9 +203,11 @@ export const useFieldsStore = defineStore('fieldsStore', () => {
 			fields.value = stateClone;
 			unexpectedError(error);
 		}
+
+		return;
 	}
 
-	async function updateField(collectionKey: string, fieldKey: string, updates: DeepPartial<Field>) {
+	async function updateField(collectionKey: string, fieldKey: string, updates: NestedPartial<DirectusField<any>>) {
 		const stateClone = [...fields.value];
 
 		// Update locally first, so the changes are visible immediately
@@ -212,11 +222,11 @@ export const useFieldsStore = defineStore('fieldsStore', () => {
 		// Save to API, and update local state again to make sure everything is in sync with the
 		// API
 		try {
-			const response = await api.patch<any>(`/fields/${collectionKey}/${fieldKey}`, updates);
+			const response = await sdk.request<FieldRaw>(updateFieldCmd(collectionKey, fieldKey, updates));
 
 			fields.value = fields.value.map((field) => {
 				if (field.collection === collectionKey && field.field === fieldKey) {
-					return parseField(response.data.data);
+					return parseField(response);
 				}
 
 				return field;
@@ -228,7 +238,7 @@ export const useFieldsStore = defineStore('fieldsStore', () => {
 		}
 	}
 
-	async function updateFields(collectionKey: string, updates: DeepPartial<Field>[]) {
+	async function updateFields(collectionKey: string, updates: NestedPartial<DirectusField<any>>[]) {
 		const updateID = nanoid();
 		const stateClone = [...fields.value];
 
@@ -250,12 +260,12 @@ export const useFieldsStore = defineStore('fieldsStore', () => {
 		try {
 			// Save to API, and update local state again to make sure everything is in sync with the
 			// API
-			const response = await api.patch(`/fields/${collectionKey}`, updates);
+			const response = await sdk.request<FieldRaw[]>(updateFieldsCmd(collectionKey, updates));
 
 			if (currentUpdate === updateID) {
 				fields.value = fields.value.map((field) => {
 					if (field.collection === collectionKey) {
-						const newDataForField = response.data.data.find((update: Field) => update.field === field.field);
+						const newDataForField = response.find((update: FieldRaw) => update.field === field.field);
 						if (newDataForField) return parseField(newDataForField);
 					}
 
@@ -295,7 +305,7 @@ export const useFieldsStore = defineStore('fieldsStore', () => {
 		});
 
 		try {
-			await api.delete(`/fields/${collectionKey}/${fieldKey}`);
+			await sdk.request(deleteFieldCmd(collectionKey, fieldKey));
 			await collectionsStore.hydrate();
 		} catch (error) {
 			fields.value = stateClone;

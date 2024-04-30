@@ -1,20 +1,21 @@
-import api from '@/api';
 import { useExtensions } from '@/extensions';
+import sdk from '@/sdk';
 import { usePermissionsStore } from '@/stores/permissions';
 import { Dashboard } from '@/types/insights';
 import { fetchAll } from '@/utils/fetch-all';
 import { queryToGqlString } from '@/utils/query-to-gql-string';
 import { unexpectedError } from '@/utils/unexpected-error';
-import type { Panel } from '@directus/extensions';
+import { type DirectusPanel, createPanels, deletePanels, updatePanelsBatch } from '@directus/sdk';
 import { isSystemCollection } from '@directus/system-data';
 import type { Item } from '@directus/types';
 import { applyOptionsData, getSimpleHash, toArray } from '@directus/utils';
-import { AxiosResponse } from 'axios';
 import escapeStringRegexp from 'escape-string-regexp';
 import { assign, clone, get, isUndefined, mapKeys, omit, omitBy, pull, uniq } from 'lodash';
 import { nanoid } from 'nanoid';
 import { acceptHMRUpdate, defineStore } from 'pinia';
 import { computed, reactive, ref, unref } from 'vue';
+
+type Panel = DirectusPanel<any>;
 
 export type CreatePanel = Partial<Panel> &
 	Pick<Panel, 'id' | 'width' | 'height' | 'position_x' | 'position_y' | 'type' | 'options'>;
@@ -186,8 +187,8 @@ export const useInsightsStore = defineStore('insightsStore', () => {
 	function emptyRelations() {
 		return unref(panels)
 			.filter(({ type }) => type === 'relational-variable')
-			.filter(({ options }) => get(unref(variables), options.field) == undefined)
-			.map(({ options }) => options.field)
+			.filter(({ options }) => get(unref(variables), options?.field) == undefined)
+			.map(({ options }) => options?.field)
 			.filter((fieldName) => typeof fieldName === 'string' && fieldName.length > 0);
 	}
 
@@ -243,10 +244,10 @@ export const useInsightsStore = defineStore('insightsStore', () => {
 		);
 
 		try {
-			const requests: Promise<AxiosResponse<any, any>>[] = [];
+			const requests: Promise<any>[] = [];
 
-			if (gqlString) requests.push(api.post(`/graphql`, { query: gqlString }));
-			if (systemGqlString) requests.push(api.post(`/graphql/system`, { query: systemGqlString }));
+			if (gqlString) requests.push(sdk.query(gqlString, {}, 'items'));
+			if (systemGqlString) requests.push(sdk.query(systemGqlString, {}, 'system'));
 
 			const responses = await Promise.all(requests);
 
@@ -331,7 +332,7 @@ export const useInsightsStore = defineStore('insightsStore', () => {
 		panelEdits = omitBy(panelEdits, isUndefined);
 
 		const isNew = id.startsWith('_');
-		const arr = isNew ? edits.create : edits.update;
+		const arr: Partial<Panel>[] = isNew ? edits.create : edits.update;
 
 		/**
 		 * Check what the currently used data query is, so we can compare it to the new query later to
@@ -422,24 +423,20 @@ export const useInsightsStore = defineStore('insightsStore', () => {
 		saving.value = true;
 
 		try {
-			const requests: Promise<AxiosResponse<any, any>>[] = [];
+			const requests: Promise<any>[] = [];
 
 			if (edits.create) {
 				// Created edits might come with a temporary ID for editing. Make sure to submit to API without temp ID
-				requests.push(
-					api.post(
-						`/panels`,
-						edits.create.map((create) => omit(create, 'id')),
-					),
-				);
+				const panels = edits.create.map((create) => omit(create, 'id'));
+				requests.push(sdk.request(createPanels(panels)));
 			}
 
 			if (edits.update) {
-				requests.push(api.patch(`/panels`, edits.update));
+				requests.push(sdk.request(updatePanelsBatch(edits.update)));
 			}
 
 			if (edits.delete) {
-				requests.push(api.delete(`/panels`, { data: edits.delete }));
+				requests.push(sdk.request(deletePanels(edits.delete)));
 			}
 
 			await Promise.all(requests);

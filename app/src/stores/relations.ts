@@ -1,7 +1,8 @@
-import api from '@/api';
+import sdk from '@/sdk';
 import { useFieldsStore } from '@/stores/fields';
 import { unexpectedError } from '@/utils/unexpected-error';
-import { Relation, DeepPartial } from '@directus/types';
+import { DirectusRelation, NestedPartial, createRelation, readRelations, updateRelation } from '@directus/sdk';
+import { Relation } from '@directus/types';
 import { getRelationType } from '@directus/utils';
 import { isEqual } from 'lodash';
 import { defineStore } from 'pinia';
@@ -13,8 +14,7 @@ export const useRelationsStore = defineStore({
 	}),
 	actions: {
 		async hydrate() {
-			const response = await api.get(`/relations`);
-			this.relations = response.data.data;
+			this.relations = await sdk.request<Relation[]>(readRelations());
 		},
 		async dehydrate() {
 			this.$reset();
@@ -24,32 +24,29 @@ export const useRelationsStore = defineStore({
 				return relation.collection === collection || relation.related_collection === collection;
 			});
 		},
-		async upsertRelation(collection: string, field: string, values: DeepPartial<Relation>) {
+		async upsertRelation(collection: string, field: string, values: NestedPartial<DirectusRelation<any>>) {
 			const existing = this.getRelationForField(collection, field);
 
 			try {
 				if (existing) {
 					if (isEqual(existing, values)) return;
 
-					const updatedRelationResponse = await api.patch<{ data: Relation }>(
-						`/relations/${collection}/${field}`,
-						values,
-					);
+					const updatedRelationResponse = await sdk.request<Relation>(updateRelation(collection, field, values));
 
 					this.relations = this.relations.map((relation) => {
 						if (relation.collection === collection && relation.field === field) {
-							return updatedRelationResponse.data.data;
+							return updatedRelationResponse;
 						}
 
 						return relation;
 					});
 				} else {
-					const createdRelationResponse = await api.post<{ data: Relation }>(`/relations`, values);
+					const createdRelationResponse = await sdk.request<Relation>(createRelation(values));
 
-					this.relations = [...this.relations, createdRelationResponse.data.data];
+					this.relations = [...this.relations, createdRelationResponse];
 				}
-			} catch (error) {
-				unexpectedError(error);
+			} catch (error: any) {
+				unexpectedError(error?.errors?.[0]);
 			}
 		},
 		/**

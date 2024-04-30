@@ -1,6 +1,7 @@
-import api from '@/api';
+import sdk from '@/sdk';
 import { useLatencyStore } from '@/stores/latency';
 import { userName } from '@/utils/user-name';
+import { readMe } from '@directus/sdk';
 import { User } from '@directus/types';
 import { merge } from 'lodash';
 import { defineStore } from 'pinia';
@@ -37,10 +38,7 @@ export const useUserStore = defineStore({
 
 			try {
 				const fields = ['*', 'avatar.id', 'role.admin_access', 'role.app_access', 'role.id', 'role.enforce_tfa'];
-
-				const { data } = await api.get(`/users/me`, { params: { fields } });
-
-				this.currentUser = data.data;
+				this.currentUser = await sdk.request<User | ShareUser>(readMe({ fields }));
 			} catch (error: any) {
 				this.error = error;
 			} finally {
@@ -52,9 +50,8 @@ export const useUserStore = defineStore({
 		},
 		async hydrateAdditionalFields(fields: string[]) {
 			try {
-				const { data } = await api.get(`/users/me`, { params: { fields } });
-
-				this.currentUser = merge({}, this.currentUser, data.data);
+				const data = await sdk.request<User | ShareUser>(readMe({ fields }));
+				this.currentUser = merge({}, this.currentUser, data);
 			} catch (error: any) {
 				// Do nothing
 			}
@@ -73,9 +70,13 @@ export const useUserStore = defineStore({
 
 			const start = performance.now();
 
-			await api.patch(`/users/me/track/page`, {
-				last_page: to.fullPath,
-			});
+			await sdk.request(() => ({
+				path: '/users/me/track/page',
+				method: 'PATCH',
+				body: JSON.stringify({
+					last_page: to.fullPath,
+				}),
+			}));
 
 			const end = performance.now();
 

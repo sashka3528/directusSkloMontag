@@ -1,8 +1,9 @@
-import api from '@/api';
 import { i18n } from '@/lang';
+import sdk from '@/sdk';
 import { fetchAll } from '@/utils/fetch-all';
 import { getLiteralInterpolatedTranslation } from '@/utils/get-literal-interpolated-translation';
 import { unexpectedError } from '@/utils/unexpected-error';
+import { createTranslation } from '@directus/sdk';
 import { defineStore } from 'pinia';
 import { ref, unref, watch } from 'vue';
 
@@ -40,7 +41,7 @@ export const useTranslationsStore = defineStore('translations', () => {
 
 	const create = async (translation: Translation) => {
 		try {
-			await api.post('/translations', translation);
+			await sdk.request(createTranslation(translation));
 			await loadTranslations();
 		} catch (error) {
 			unexpectedError(error);

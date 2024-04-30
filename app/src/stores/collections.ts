@@ -1,4 +1,3 @@
-import api from '@/api';
 import { COLLECTIONS_DENY_LIST } from '@/constants';
 import { i18n } from '@/lang';
 import { Collection } from '@/types/collections';
@@ -6,13 +5,22 @@ import { getLiteralInterpolatedTranslation } from '@/utils/get-literal-interpola
 import { notify } from '@/utils/notify';
 import { unexpectedError } from '@/utils/unexpected-error';
 import formatTitle from '@directus/format-title';
-import { Collection as CollectionRaw, DeepPartial, Field } from '@directus/types';
+import { Collection as CollectionRaw } from '@directus/types';
 import { getCollectionType } from '@directus/utils';
 import { isEqual, isNil, omit, orderBy } from 'lodash';
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import { useRelationsStore } from './relations';
 import { isSystemCollection } from '@directus/system-data';
+import {
+	DirectusCollection,
+	NestedPartial,
+	createCollection as createCollectionCmd,
+	deleteCollection as deleteCollectionCmd,
+	readCollections as readCollectionsCmd,
+	updateCollection as updateCollectionCmd,
+} from '@directus/sdk';
+import sdk from '@/sdk';
 
 export const useCollectionsStore = defineStore('collectionsStore', () => {
 	const collections = ref<Collection[]>([]);
@@ -53,9 +61,7 @@ export const useCollectionsStore = defineStore('collectionsStore', () => {
 	};
 
 	async function hydrate() {
-		const response = await api.get<any>(`/collections`);
-
-		const rawCollections: CollectionRaw[] = response.data.data;
+		const rawCollections = await sdk.request<CollectionRaw[]>(readCollectionsCmd());
 
 		collections.value = rawCollections.map(prepareCollectionForApp);
 	}
@@ -132,7 +138,7 @@ export const useCollectionsStore = defineStore('collectionsStore', () => {
 		});
 	}
 
-	async function upsertCollection(collection: string, values: DeepPartial<Collection & { fields: Field[] }>) {
+	async function upsertCollection(collection: string, values: NestedPartial<DirectusCollection<any>>) {
 		const existing = getCollection(collection);
 
 		// Strip out any fields the app might've auto-generated at some point
@@ -142,31 +148,28 @@ export const useCollectionsStore = defineStore('collectionsStore', () => {
 			if (existing) {
 				if (isEqual(existing, values)) return;
 
-				const updatedCollectionResponse = await api.patch<{ data: CollectionRaw }>(
-					`/collections/${collection}`,
-					rawValues,
-				);
+				const updatedCollectionResponse = await sdk.request<CollectionRaw>(updateCollectionCmd(collection, rawValues));
 
 				collections.value = collections.value.map((existingCollection: Collection) => {
 					if (existingCollection.collection === collection) {
-						return prepareCollectionForApp(updatedCollectionResponse.data.data);
+						return prepareCollectionForApp(updatedCollectionResponse);
 					}
 
 					return existingCollection;
 				});
 			} else {
-				const createdCollectionResponse = await api.post<{ data: CollectionRaw }>('/collections', rawValues);
+				const createdCollectionResponse = await sdk.request<CollectionRaw>(createCollectionCmd(rawValues));
 
-				collections.value = [...collections.value, prepareCollectionForApp(createdCollectionResponse.data.data)];
+				collections.value = [...collections.value, prepareCollectionForApp(createdCollectionResponse)];
 			}
 		} catch (error) {
 			unexpectedError(error);
 		}
 	}
 
-	async function updateCollection(collection: string, updates: DeepPartial<Collection>) {
+	async function updateCollection(collection: string, updates: NestedPartial<DirectusCollection<any>>) {
 		try {
-			await api.patch(`/collections/${collection}`, updates);
+			await sdk.request(updateCollectionCmd(collection, updates));
 			await hydrate();
 
 			notify({
@@ -181,7 +184,7 @@ export const useCollectionsStore = defineStore('collectionsStore', () => {
 		const relationsStore = useRelationsStore();
 
 		try {
-			await api.delete(`/collections/${collection}`);
+			await sdk.request(deleteCollectionCmd(collection));
 			await Promise.all([hydrate(), relationsStore.hydrate()]);
 
 			notify({

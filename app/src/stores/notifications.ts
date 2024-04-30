@@ -1,10 +1,11 @@
-import api from '@/api';
 import { Snackbar, SnackbarRaw } from '@/types/notifications';
 import { Notification } from '@directus/types';
 import { reverse, sortBy } from 'lodash';
 import { nanoid } from 'nanoid';
 import { defineStore } from 'pinia';
 import { useUserStore } from './user';
+import { readNotifications } from '@directus/sdk';
+import sdk from '@/sdk';
 
 export const useNotificationsStore = defineStore({
 	id: 'notificationsStore',
@@ -28,8 +29,8 @@ export const useNotificationsStore = defineStore({
 
 			if (!userStore.currentUser || !('id' in userStore.currentUser)) return;
 
-			const countResponse = await api.get('/notifications', {
-				params: {
+			const countResponse = await sdk.request(
+				readNotifications({
 					filter: {
 						_and: [
 							{
@@ -47,10 +48,10 @@ export const useNotificationsStore = defineStore({
 					aggregate: {
 						count: 'id',
 					},
-				},
-			});
+				}),
+			);
 
-			this.unread = countResponse.data.data[0].count.id;
+			this.unread = countResponse[0]!.count.id;
 		},
 		setUnreadCount(count: number) {
 			this.unread = count < 0 ? 0 : count;

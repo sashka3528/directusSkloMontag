@@ -1,4 +1,3 @@
-import api from '@/api';
 import { i18n } from '@/lang';
 import { notify } from '@/utils/notify';
 import { unexpectedError } from '@/utils/unexpected-error';
@@ -6,6 +5,8 @@ import { Settings } from '@directus/types';
 import { merge } from 'lodash';
 import { defineStore } from 'pinia';
 import { useUserStore } from './user';
+import { readSettings, updateSettings } from '@directus/sdk';
+import sdk from '@/sdk';
 
 export const useSettingsStore = defineStore({
 	id: 'settingsStore',
@@ -17,8 +18,7 @@ export const useSettingsStore = defineStore({
 			const userStore = useUserStore();
 			if (!userStore.currentUser || 'share' in userStore.currentUser) return;
 
-			const response = await api.get(`/settings`);
-			this.settings = response.data.data;
+			this.settings = await sdk.request<Settings>(readSettings());
 		},
 
 		async dehydrate() {
@@ -32,9 +32,7 @@ export const useSettingsStore = defineStore({
 			this.settings = newSettings;
 
 			try {
-				const response = await api.patch(`/settings`, updates);
-
-				this.settings = response.data.data;
+				this.settings = await sdk.request<Settings>(updateSettings(updates));
 
 				if (notifyOnSuccess) {
 					notify({

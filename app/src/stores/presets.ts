@@ -1,7 +1,8 @@
-import api from '@/api';
+import sdk from '@/sdk';
 import { useUserStore } from '@/stores/user';
 import { fetchAll } from '@/utils/fetch-all';
-import { Preset } from '@directus/types';
+import { createPreset, deletePresets, readPreset, updatePreset } from '@directus/sdk';
+import { Preset, User } from '@directus/types';
 import { cloneDeep, merge, orderBy } from 'lodash';
 import { nanoid } from 'nanoid';
 import { defineStore } from 'pinia';
@@ -153,7 +154,7 @@ export const usePresetsStore = defineStore({
 				// All role saved bookmarks and presets
 				fetchAll<any>(`/presets`, {
 					params: {
-						'filter[role][_eq]': role.id,
+						'filter[role][_eq]': role!.id,
 						'filter[user][_null]': true,
 					},
 				}),
@@ -185,22 +186,20 @@ export const usePresetsStore = defineStore({
 			this.$reset();
 		},
 		async create(newPreset: Partial<Preset>) {
-			const response = await api.post(`/presets`, newPreset);
+			const response = await sdk.request<Preset>(createPreset(newPreset));
 
-			this.collectionPresets.push(response.data.data);
+			this.collectionPresets.push(response);
 
-			return response.data.data;
+			return response;
 		},
 		async update(id: number, updates: Partial<Preset>) {
 			const updateID = nanoid();
 			currentUpdate[id] = updateID;
 
-			const response = await api.patch(`/presets/${id}`, updates);
+			const updatedPreset = await sdk.request<Preset>(updatePreset(id, updates));
 
 			if (currentUpdate[id] === updateID) {
 				this.collectionPresets = this.collectionPresets.map((preset) => {
-					const updatedPreset = response.data.data;
-
 					if (preset.id === updatedPreset.id) {
 						return updatedPreset;
 					}
@@ -209,10 +208,10 @@ export const usePresetsStore = defineStore({
 				});
 			}
 
-			return response.data.data;
+			return updatedPreset;
 		},
 		async delete(ids: number[]) {
-			await api.delete('/presets', { data: ids });
+			await sdk.request(deletePresets(ids));
 
 			this.collectionPresets = this.collectionPresets.filter((preset) => {
 				return !ids.includes(preset.id!);
@@ -240,7 +239,7 @@ export const usePresetsStore = defineStore({
 
 			const availablePresets = this.collectionPresets.filter((preset) => {
 				const userMatches = preset.user === userID || preset.user === null;
-				const roleMatches = preset.role === userRole.id || preset.role === null;
+				const roleMatches = preset.role === userRole!.id || preset.role === null;
 				const collectionMatches = preset.collection === collection;
 
 				// Filter out all bookmarks
@@ -258,7 +257,7 @@ export const usePresetsStore = defineStore({
 			const userPreset = availablePresets.find((preset) => preset.user === userID);
 			if (userPreset) return userPreset;
 
-			const rolePreset = availablePresets.find((preset) => preset.role === userRole.id);
+			const rolePreset = availablePresets.find((preset) => preset.role === userRole!.id);
 			if (rolePreset) return rolePreset;
 
 			// If the other two already came up empty, we can assume there's only one preset. That
@@ -281,7 +280,9 @@ export const usePresetsStore = defineStore({
 		async savePreset(preset: Partial<Preset>) {
 			const userStore = useUserStore();
 			if (userStore.currentUser === null) return null;
-			const { id: userID } = userStore.currentUser;
+
+			// TODO why does the userStore.currentUser type error?
+			const { id: userID } = userStore.currentUser as User;
 
 			// Clone the preset to make sure the future deletes don't affect the original object
 			preset = cloneDeep(preset);
@@ -318,11 +319,11 @@ export const usePresetsStore = defineStore({
 		},
 
 		async clearLocalSave(preset: Preset) {
-			const response = await api.get(`/presets/${preset.id}`);
+			const response = await sdk.request<Preset>(readPreset(preset.id!));
 
 			this.collectionPresets = this.collectionPresets.map((preset) => {
-				if (preset.id === response.data.data.id) {
-					return response.data.data;
+				if (preset.id === response.id) {
+					return response;
 				}
 
 				return preset;
