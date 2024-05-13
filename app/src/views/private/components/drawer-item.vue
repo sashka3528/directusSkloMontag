@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import api from '@/api';
 import { useEditsGuard } from '@/composables/use-edits-guard';
 import { useItemPermissions } from '@/composables/use-permissions';
 import { useTemplateData } from '@/composables/use-template-data';
@@ -9,7 +8,7 @@ import { getDefaultValuesFromFields } from '@/utils/get-default-values-from-fiel
 import { unexpectedError } from '@/utils/unexpected-error';
 import { validateItem } from '@/utils/validate-item';
 import FilePreviewReplace from '@/views/private/components/file-preview-replace.vue';
-import { useCollection } from '@directus/composables';
+import { useCollection, useSdk } from '@directus/composables';
 import { isSystemCollection } from '@directus/system-data';
 import { Field, PrimaryKey, Relation } from '@directus/types';
 import { getEndpoint } from '@directus/utils';
@@ -17,6 +16,7 @@ import { isEmpty, merge, set } from 'lodash';
 import { Ref, computed, ref, toRefs, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
+import { RestCommand } from '@directus/sdk';
 
 interface Props {
 	collection: string;
@@ -192,6 +192,7 @@ function useActiveState() {
 }
 
 function useItem() {
+	const sdk = useSdk();
 	const internalEdits = ref<Record<string, any>>({});
 	const loading = ref(false);
 	const initialValues = ref<Record<string, any> | null>(null);
@@ -227,22 +228,16 @@ function useItem() {
 
 		loading.value = true;
 
-		const baseEndpoint = getEndpoint(props.collection);
+		const primaryKey = isSystemCollection(props.collection) ? props.primaryKey : encodeURIComponent(props.primaryKey);
 
-		const endpoint = isSystemCollection(props.collection)
-			? `${baseEndpoint}/${props.primaryKey}`
-			: `${baseEndpoint}/${encodeURIComponent(props.primaryKey)}`;
-
-		let fields = '*';
+		const fields = ['*'];
 
 		if (props.junctionField) {
-			fields = `*,${props.junctionField}.*`;
+			fields.push(props.junctionField + '.*');
 		}
 
 		try {
-			const response = await api.get(endpoint, { params: { fields } });
-
-			initialValues.value = response.data.data;
+			initialValues.value = await sdk.request(dynamicGet(props.collection, primaryKey, { fields }));
 		} catch (error) {
 			unexpectedError(error);
 		} finally {
@@ -257,18 +252,16 @@ function useItem() {
 
 		loading.value = true;
 
-		const baseEndpoint = getEndpoint(collection);
-
-		const endpoint = isSystemCollection(collection)
-			? `${baseEndpoint}/${props.relatedPrimaryKey}`
-			: `${baseEndpoint}/${encodeURIComponent(props.relatedPrimaryKey)}`;
+		const primaryKey = isSystemCollection(collection)
+			? props.relatedPrimaryKey
+			: encodeURIComponent(props.relatedPrimaryKey);
 
 		try {
-			const response = await api.get(endpoint);
+			const response = await sdk.request(dynamicGet(collection, primaryKey));
 
 			initialValues.value = {
 				...(initialValues.value || {}),
-				[junctionFieldInfo.value.field]: response.data.data,
+				[junctionFieldInfo.value.field]: response,
 			};
 		} catch (error) {
 			unexpectedError(error);
@@ -276,6 +269,19 @@ function useItem() {
 			loading.value = false;
 		}
 	}
+}
+
+function dynamicGet(
+	collection: string,
+	key: string | number,
+	params: Record<string, any> = {},
+): RestCommand<Record<string, any>, any> {
+	const basePath = getEndpoint(collection);
+	return () => ({
+		path: `${basePath}/${key}`,
+		params: params,
+		method: 'GET',
+	});
 }
 
 function useRelation() {

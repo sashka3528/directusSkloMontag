@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import api from '@/api';
 import { useCollectionPermissions } from '@/composables/use-permissions';
 import { useServerStore } from '@/stores/server';
 import { getPublicURL } from '@/utils/get-root-path';
@@ -7,10 +6,10 @@ import { notify } from '@/utils/notify';
 import { readableMimeType } from '@/utils/readable-mime-type';
 import { unexpectedError } from '@/utils/unexpected-error';
 import FolderPicker from '@/views/private/components/folder-picker.vue';
-import { useCollection } from '@directus/composables';
+import { useCollection, useSdk } from '@directus/composables';
+import { RestCommand, utilsImport, getRequestUrl, utilsExport, FileFormat, Query } from '@directus/sdk';
 import { Filter } from '@directus/types';
 import { getEndpoint } from '@directus/utils';
-import type { AxiosProgressEvent } from 'axios';
 import { debounce, pick } from 'lodash';
 import { computed, reactive, ref, toRefs, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -31,6 +30,7 @@ const props = defineProps<{
 
 const emit = defineEmits(['refresh']);
 
+const sdk = useSdk();
 const { t, n, te } = useI18n();
 
 const { collection } = toRefs(props);
@@ -124,21 +124,21 @@ const getItemCount = async () => {
 					count: ['*'],
 			  };
 
-		const response = await api.get(getEndpoint(collection.value), {
-			params: {
+		const response = await sdk.request(
+			dynamicGet(collection.value, {
 				...pick(exportSettings, ['search', 'filter']),
 				aggregate,
-			},
-		});
+			}),
+		);
 
 		let count;
 
-		if (response.data.data?.[0]?.count) {
-			count = Number(response.data.data[0].count);
+		if (response[0]?.count) {
+			count = Number(response[0].count);
 		}
 
-		if (response.data.data?.[0]?.countDistinct) {
-			count = Number(response.data.data[0].countDistinct[primaryKeyField.value!.field]);
+		if (response[0]?.countDistinct) {
+			count = Number(response[0].countDistinct[primaryKeyField.value!.field]);
 		}
 
 		itemCount.value = count;
@@ -147,6 +147,14 @@ const getItemCount = async () => {
 		itemCountLoading.value = false;
 	}
 };
+
+function dynamicGet(collection: string, params: Record<string, any> = {}): RestCommand<Record<string, any>[], any> {
+	return () => ({
+		path: getEndpoint(collection),
+		method: 'GET',
+		params,
+	});
+}
 
 watch([() => exportSettings.search, () => exportSettings.filter], debounce(getItemCount, 250));
 
@@ -263,13 +271,10 @@ function useUpload() {
 		formData.append('file', file);
 
 		try {
-			await api.post(`/utils/import/${collection.value}`, formData, {
-				onUploadProgress: (progressEvent: AxiosProgressEvent) => {
-					const percentCompleted = Math.floor((progressEvent.loaded * 100) / progressEvent.total!);
-					progress.value = percentCompleted;
-					importing.value = percentCompleted === 100 ? true : false;
-				},
-			});
+			await sdk.request(utilsImport(collection.value, formData));
+
+			progress.value = 100;
+			importing.value = true;
 
 			clearFileInput();
 
@@ -279,7 +284,7 @@ function useUpload() {
 				title: t('import_data_success', { filename: file.name }),
 			});
 		} catch (error: any) {
-			const code = error?.response?.data?.errors?.[0]?.extensions?.code;
+			const code = error?.errors?.[0]?.extensions?.code;
 
 			notify({
 				title: te(`errors.${code}`) ? t(`errors.${code}`) : t('import_data_error'),
@@ -306,11 +311,6 @@ function startExport() {
 }
 
 function exportDataLocal() {
-	const endpoint = getEndpoint(collection.value);
-
-	// usually getEndpoint contains leading slash, but here we need to remove it
-	const url = getPublicURL() + endpoint.substring(1);
-
 	const params: Record<string, unknown> = {
 		export: format.value,
 	};
@@ -323,10 +323,9 @@ function exportDataLocal() {
 
 	params.limit = exportSettings.limit ? Math.min(exportSettings.limit, queryLimitMax) : -1;
 
-	const exportUrl = api.getUri({
-		url,
-		params,
-	});
+	const url = new URL(getPublicURL());
+	const endpoint = getEndpoint(collection.value);
+	const exportUrl = getRequestUrl(url, endpoint, params);
 
 	window.open(exportUrl);
 }
@@ -335,16 +334,19 @@ async function exportDataFiles() {
 	exporting.value = true;
 
 	try {
-		await api.post(`/utils/export/${collection.value}`, {
-			query: {
-				...exportSettings,
-				...(exportSettings.sort && exportSettings.sort !== '' && { sort: [exportSettings.sort] }),
-			},
-			format: format.value,
-			file: {
-				folder: folder.value,
-			},
-		});
+		await sdk.request(
+			utilsExport(
+				collection.value,
+				format.value as FileFormat,
+				{
+					...exportSettings,
+					...(exportSettings.sort && exportSettings.sort !== '' && { sort: [exportSettings.sort] }),
+				} as Query<any, any>,
+				{
+					folder: folder.value,
+				},
+			),
+		);
 
 		exportDialogActive.value = false;
 
