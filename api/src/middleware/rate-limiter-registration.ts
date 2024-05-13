@@ -2,7 +2,7 @@ import { useEnv } from '@directus/env';
 import { HitRateLimitError } from '@directus/errors';
 import type { RequestHandler } from 'express';
 import type { RateLimiterMemory, RateLimiterRedis } from 'rate-limiter-flexible';
-import { createRateLimiter } from '../rate-limiter.js';
+import { createRateLimiter } from '../rate-limiter/index.js';
 import asyncHandler from '../utils/async-handler.js';
 import { getIPFromReq } from '../utils/get-ip-from-req.js';
 import { validateEnv } from '../utils/validate-env.js';

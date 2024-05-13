@@ -1,17 +1,13 @@
+import type { RequestHandler } from 'express';
+import { sanitizeQuery as sanitizedQueryUtil } from '../utils/sanitize-query.js';
+import { validateQuery } from '../utils/validate-query.js';
+
 /**
  * Sanitize query parameters.
  * This ensures that query params are formatted and ready to go for the services.
  */
-
-import type { RequestHandler } from 'express';
-import { sanitizeQuery } from '../utils/sanitize-query.js';
-import { validateQuery } from '../utils/validate-query.js';
-
-const sanitizeQueryMiddleware: RequestHandler = (req, _res, next) => {
-	req.sanitizedQuery = {};
-	if (!req.query) return;
-
-	req.sanitizedQuery = sanitizeQuery(
+export const sanitizeQuery: RequestHandler = (req, _res, next) => {
+	req.sanitizedQuery = sanitizedQueryUtil(
 		{
 			fields: req.query['fields'] || '*',
 			...req.query,
@@ -25,5 +21,3 @@ const sanitizeQueryMiddleware: RequestHandler = (req, _res, next) => {
 
 	return next();
 };
-
-export default sanitizeQueryMiddleware;

@@ -1,42 +1,30 @@
 import { useEnv } from '@directus/env';
 import { HitRateLimitError } from '@directus/errors';
-import type { RequestHandler } from 'express';
-import type { RateLimiterMemory, RateLimiterRedis } from 'rate-limiter-flexible';
-import { createRateLimiter } from '../rate-limiter.js';
+import { RateLimiterRes } from '../rate-limiter/index.js';
+import { useRateLimiterIp } from '../rate-limiter/use-rate-limiter-ip.js';
 import asyncHandler from '../utils/async-handler.js';
 import { getIPFromReq } from '../utils/get-ip-from-req.js';
-import { validateEnv } from '../utils/validate-env.js';
 
-let checkRateLimit: RequestHandler = (_req, _res, next) => next();
+export const rateLimiterIp = asyncHandler(async (req, res, next) => {
+	const ip = getIPFromReq(req);
 
-export let rateLimiter: RateLimiterRedis | RateLimiterMemory;
+	if (!ip) return next();
 
-const env = useEnv();
+	const rateLimiter = useRateLimiterIp();
 
-if (env['RATE_LIMITER_ENABLED'] === true) {
-	validateEnv(['RATE_LIMITER_STORE', 'RATE_LIMITER_DURATION', 'RATE_LIMITER_POINTS']);
+	try {
+		await rateLimiter?.consume(ip, 1);
+	} catch (error) {
+		if (!(error instanceof RateLimiterRes)) throw error;
 
-	rateLimiter = createRateLimiter('RATE_LIMITER');
+		const env = useEnv();
 
-	checkRateLimit = asyncHandler(async (req, res, next) => {
-		const ip = getIPFromReq(req);
+		res.set('Retry-After', String(Math.round(error.msBeforeNext / 1000)));
+		throw new HitRateLimitError({
+			limit: +(env['RATE_LIMITER_POINTS'] as string),
+			reset: new Date(Date.now() + error.msBeforeNext),
+		});
+	}
 
-		if (ip) {
-			try {
-				await rateLimiter.consume(ip, 1);
-			} catch (rateLimiterRes: any) {
-				if (rateLimiterRes instanceof Error) throw rateLimiterRes;
-
-				res.set('Retry-After', String(Math.round(rateLimiterRes.msBeforeNext / 1000)));
-				throw new HitRateLimitError({
-					limit: +(env['RATE_LIMITER_POINTS'] as string),
-					reset: new Date(Date.now() + rateLimiterRes.msBeforeNext),
-				});
-			}
-		}
-
-		next();
-	});
-}
-
-export default checkRateLimit;
+	return next();
+});

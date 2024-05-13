@@ -10,8 +10,8 @@ import { getCache } from '../cache.js';
 import getDatabase, { hasDatabaseConnection } from '../database/index.js';
 import { useLogger } from '../logger.js';
 import getMailer from '../mailer.js';
-import { rateLimiterGlobal } from '../middleware/rate-limiter-global.js';
-import { rateLimiter } from '../middleware/rate-limiter-ip.js';
+import { useRateLimiterGlobal } from '../rate-limiter/use-rate-limiter-global.js';
+import { useRateLimiterIp } from '../rate-limiter/use-rate-limiter-ip.js';
 import { SERVER_ONLINE } from '../server.js';
 import { getStorage } from '../storage/index.js';
 import type { AbstractServiceOptions } from '../types/index.js';
@@ -291,7 +291,9 @@ export class ServerService {
 		}
 
 		async function testRateLimiter(): Promise<Record<string, HealthCheck[]>> {
-			if (env['RATE_LIMITER_ENABLED'] !== true) {
+			const rateLimiterIp = useRateLimiterIp();
+
+			if (!rateLimiterIp) {
 				return {};
 			}
 
@@ -310,8 +312,8 @@ export class ServerService {
 			const startTime = performance.now();
 
 			try {
-				await rateLimiter.consume(`health-${checkID}`, 1);
-				await rateLimiter.delete(`health-${checkID}`);
+				await rateLimiterIp.consume(`health-${checkID}`, 1);
+				await rateLimiterIp.delete(`health-${checkID}`);
 			} catch (err: any) {
 				checks['rateLimiter:responseTime']![0]!.status = 'error';
 				checks['rateLimiter:responseTime']![0]!.output = err;
@@ -331,7 +333,9 @@ export class ServerService {
 		}
 
 		async function testRateLimiterGlobal(): Promise<Record<string, HealthCheck[]>> {
-			if (env['RATE_LIMITER_GLOBAL_ENABLED'] !== true) {
+			const rateLimiterGlobal = useRateLimiterGlobal();
+
+			if (!rateLimiterGlobal) {
 				return {};
 			}
 

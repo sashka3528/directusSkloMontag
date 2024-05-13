@@ -1,68 +1,64 @@
 import type { Request, Response } from 'express';
 import { beforeEach, expect, test, vi } from 'vitest';
-import extractToken from './extract-token.js';
-import '../types/express.d.ts';
+import { extractToken } from './extract-token.js';
 
-let mockRequest: Partial<Request & { token?: string }>;
-let mockResponse: Partial<Response>;
-const nextFunction = vi.fn();
+let mockRequest: Request;
+let mockResponse: Response;
+const next = vi.fn();
 
 beforeEach(() => {
-	mockRequest = {};
-	mockResponse = {};
+	mockRequest = {} as Request;
+	mockResponse = {} as Response;
 	vi.clearAllMocks();
 });
 
 test('Token from query', () => {
-	mockRequest = {
-		query: {
-			access_token: 'test',
-		},
+	mockRequest.query = {
+		access_token: 'test',
 	};
 
-	extractToken(mockRequest as Request, mockResponse as Response, nextFunction);
+	extractToken(mockRequest, mockResponse, next);
+
 	expect(mockRequest.token).toBe('test');
-	expect(nextFunction).toBeCalledTimes(1);
+	expect(next).toBeCalledTimes(1);
 });
 
 test('Token from Authorization header (capitalized)', () => {
-	mockRequest = {
-		headers: {
-			authorization: 'Bearer test',
-		},
+	mockRequest.headers = {
+		authorization: 'Bearer test',
 	};
 
-	extractToken(mockRequest as Request, mockResponse as Response, nextFunction);
+	extractToken(mockRequest, mockResponse, next);
+
 	expect(mockRequest.token).toBe('test');
-	expect(nextFunction).toBeCalledTimes(1);
+	expect(next).toBeCalledTimes(1);
 });
 
 test('Token from Authorization header (lowercase)', () => {
-	mockRequest = {
-		headers: {
-			authorization: 'bearer test',
-		},
+	mockRequest.headers = {
+		authorization: 'bearer test',
 	};
 
-	extractToken(mockRequest as Request, mockResponse as Response, nextFunction);
+	extractToken(mockRequest, mockResponse, next);
+
 	expect(mockRequest.token).toBe('test');
-	expect(nextFunction).toBeCalledTimes(1);
+	expect(next).toBeCalledTimes(1);
 });
 
 test('Ignore the token if authorization header is too many parts', () => {
-	mockRequest = {
-		headers: {
-			authorization: 'bearer test what another one',
-		},
+	mockRequest.headers = {
+		authorization: 'bearer test what another one',
 	};
 
-	extractToken(mockRequest as Request, mockResponse as Response, nextFunction);
+	extractToken(mockRequest, mockResponse, next);
+
 	expect(mockRequest.token).toBeNull();
-	expect(nextFunction).toBeCalledTimes(1);
+	expect(next).toBeCalledTimes(1);
 });
 
 test('Null if no token passed', () => {
-	extractToken(mockRequest as Request, mockResponse as Response, nextFunction);
+	extractToken(mockRequest, mockResponse, next);
+
 	expect(mockRequest.token).toBeNull();
-	expect(nextFunction).toBeCalledTimes(1);
+	expect(next).toBeCalledTimes(1);
 });

@@ -1,10 +1,9 @@
 import { isObject } from '@directus/utils';
-import type { RequestHandler } from 'express';
-import { VersionsService } from '../services/versions.js';
-import asyncHandler from '../utils/async-handler.js';
-import { mergeVersionsRaw, mergeVersionsRecursive } from '../utils/merge-version-data.js';
+import { VersionsService } from '../../../services/versions.js';
+import asyncHandler from '../../../utils/async-handler.js';
+import { mergeVersionsRaw, mergeVersionsRecursive } from '../../../utils/merge-version-data.js';
 
-export const mergeContentVersions: RequestHandler = asyncHandler(async (req, res, next) => {
+export const mergeContentVersions = asyncHandler(async (req, res, next) => {
 	if (
 		req.sanitizedQuery.version &&
 		req.collection &&

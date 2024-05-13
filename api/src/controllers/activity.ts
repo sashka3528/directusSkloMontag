@@ -1,15 +1,14 @@
 import { Action } from '@directus/constants';
-import { isDirectusError } from '@directus/errors';
+import { ErrorCode, ForbiddenError, InvalidPayloadError, isDirectusError } from '@directus/errors';
 import express from 'express';
 import Joi from 'joi';
-import { ErrorCode, ForbiddenError, InvalidPayloadError } from '@directus/errors';
-import { respond } from '../middleware/respond.js';
-import useCollection from '../middleware/use-collection.js';
-import { validateBatch } from '../middleware/validate-batch.js';
 import { ActivityService } from '../services/activity.js';
 import { MetaService } from '../services/meta.js';
 import asyncHandler from '../utils/async-handler.js';
 import { getIPFromReq } from '../utils/get-ip-from-req.js';
+import { respond } from './handlers/respond.js';
+import { useCollection } from './handlers/use-collection.js';
+import { validateBatch } from './handlers/validate-batch.js';
 
 const router = express.Router();
 
