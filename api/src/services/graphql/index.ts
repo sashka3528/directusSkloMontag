@@ -1258,7 +1258,7 @@ export class GraphQLService {
 							args: {
 								event: subscriptionEventType,
 							},
-							subscribe: createSubscriptionGenerator(self, eventName),
+							subscribe: createSubscriptionGenerator(self, collection.collection),
 						},
 					});
 				}
