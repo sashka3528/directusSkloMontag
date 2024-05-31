@@ -4,7 +4,7 @@ import { getMatch } from 'ip-matching';
 import type { AbstractServiceOptions, MutationOptions } from '../types/index.js';
 import { transaction } from '../utils/transaction.js';
 import { ItemsService } from './items.js';
-import { PermissionsService } from './permissions/index.js';
+import { PermissionsService } from './permissions.js';
 import { PresetsService } from './presets.js';
 import { UsersService } from './users.js';
 
@@ -13,6 +13,7 @@ export class RolesService extends ItemsService {
 		super('directus_roles', options);
 	}
 
+	// TODO move to policies
 	private async checkForOtherAdminRoles(excludeKeys: PrimaryKey[]): Promise<void> {
 		// Make sure there's at least one admin role left after this deletion is done
 		const otherAdminRoles = await this.knex
@@ -29,6 +30,7 @@ export class RolesService extends ItemsService {
 		}
 	}
 
+	// TODO move to policies
 	private async checkForOtherAdminUsers(
 		key: PrimaryKey,
 		users: Alterations<User, 'id'> | (string | Partial<User>)[],
@@ -82,6 +84,7 @@ export class RolesService extends ItemsService {
 			usersRemoved.push(...users.delete);
 		}
 
+		// TODO move to policies
 		if (role.admin_access === false || role.admin_access === 0) {
 			// Admin users might have moved in from other role, thus becoming non-admin
 			if (usersAdded.length > 0) {
@@ -151,6 +154,7 @@ export class RolesService extends ItemsService {
 		return;
 	}
 
+	// TODO move to policies
 	private isIpAccessValid(value?: any[] | null): boolean {
 		if (value === undefined) return false;
 		if (value === null) return true;
@@ -170,6 +174,7 @@ export class RolesService extends ItemsService {
 		return true;
 	}
 
+	// TODO move to policies
 	private assertValidIpAccess(partialItem: Partial<Item>): void {
 		if ('ip_access' in partialItem && !this.isIpAccessValid(partialItem['ip_access'])) {
 			throw new InvalidPayloadError({
@@ -230,6 +235,7 @@ export class RolesService extends ItemsService {
 		this.assertValidIpAccess(data);
 
 		try {
+			// TODO move to policies
 			if ('admin_access' in data && data['admin_access'] === false) {
 				await this.checkForOtherAdminRoles(keys);
 			}
@@ -265,29 +271,16 @@ export class RolesService extends ItemsService {
 		}
 
 		await transaction(this.knex, async (trx) => {
-			const itemsService = new ItemsService('directus_roles', {
+			const options: AbstractServiceOptions = {
 				knex: trx,
 				accountability: this.accountability,
 				schema: this.schema,
-			});
+			};
 
-			const permissionsService = new PermissionsService({
-				knex: trx,
-				accountability: this.accountability,
-				schema: this.schema,
-			});
-
-			const presetsService = new PresetsService({
-				knex: trx,
-				accountability: this.accountability,
-				schema: this.schema,
-			});
-
-			const usersService = new UsersService({
-				knex: trx,
-				accountability: this.accountability,
-				schema: this.schema,
-			});
+			const itemsService = new ItemsService('directus_roles', options);
+			const permissionsService = new PermissionsService(options);
+			const presetsService = new PresetsService(options);
+			const usersService = new UsersService(options);
 
 			// Delete permissions/presets for this role, suspend all remaining users in role
 

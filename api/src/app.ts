@@ -53,11 +53,9 @@ import { getFlowManager } from './flows.js';
 import { createExpressLogger, useLogger } from './logger.js';
 import authenticate from './middleware/authenticate.js';
 import cache from './middleware/cache.js';
-import { checkIP } from './middleware/check-ip.js';
 import cors from './middleware/cors.js';
 import errorHandler from './middleware/error-handler.js';
 import extractToken from './middleware/extract-token.js';
-import getPermissions from './middleware/get-permissions.js';
 import rateLimiterGlobal from './middleware/rate-limiter-global.js';
 import rateLimiter from './middleware/rate-limiter-ip.js';
 import sanitizeQuery from './middleware/sanitize-query.js';
@@ -259,15 +257,11 @@ export default async function createApp(): Promise<express.Application> {
 
 	app.use(authenticate);
 
-	app.use(checkIP);
-
 	app.use(sanitizeQuery);
 
 	app.use(cache);
 
 	app.use(schema);
-
-	app.use(getPermissions);
 
 	await emitter.emitInit('middlewares.after', { app });
 

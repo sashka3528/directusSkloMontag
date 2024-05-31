@@ -1,5 +1,5 @@
 import { useEnv } from '@directus/env';
-import { ForbiddenError, InvalidPayloadError, RecordNotUniqueError, UnprocessableContentError } from '@directus/errors';
+import { ForbiddenError, InvalidPayloadError, RecordNotUniqueError } from '@directus/errors';
 import type { Item, PrimaryKey, Query, RegisterUserInput, User } from '@directus/types';
 import { getSimpleHash, toArray, validatePayload } from '@directus/utils';
 import { FailedValidationError, joiValidationErrorItemToErrorExtensions } from '@directus/validation';
@@ -9,6 +9,7 @@ import { cloneDeep, isEmpty } from 'lodash-es';
 import { performance } from 'perf_hooks';
 import getDatabase from '../database/index.js';
 import { useLogger } from '../logger.js';
+import { createDefaultAccountability } from '../permissions/utils/create-default-accountability.js';
 import type { AbstractServiceOptions, MutationOptions } from '../types/index.js';
 import { getSecret } from '../utils/get-secret.js';
 import isUrlAllowed from '../utils/is-url-allowed.js';
@@ -22,6 +23,8 @@ import { SettingsService } from './settings.js';
 
 const env = useEnv();
 const logger = useLogger();
+
+// TODO make sure there's always one user with admin status
 
 export class UsersService extends ItemsService {
 	constructor(options: AbstractServiceOptions) {
@@ -101,43 +104,6 @@ export class UsersService extends ItemsService {
 					}),
 				);
 			}
-		}
-	}
-
-	private async checkRemainingAdminExistence(excludeKeys: PrimaryKey[]) {
-		// Make sure there's at least one admin user left after this deletion is done
-		const otherAdminUsers = await this.knex
-			.count('*', { as: 'count' })
-			.from('directus_users')
-			.whereNotIn('directus_users.id', excludeKeys)
-			.andWhere({ 'directus_roles.admin_access': true })
-			.leftJoin('directus_roles', 'directus_users.role', 'directus_roles.id')
-			.first();
-
-		const otherAdminUsersCount = +(otherAdminUsers?.count || 0);
-
-		if (otherAdminUsersCount === 0) {
-			throw new UnprocessableContentError({ reason: `You can't remove the last admin user from the role` });
-		}
-	}
-
-	/**
-	 * Make sure there's at least one active admin user when updating user status
-	 */
-	private async checkRemainingActiveAdmin(excludeKeys: PrimaryKey[]): Promise<void> {
-		const otherAdminUsers = await this.knex
-			.count('*', { as: 'count' })
-			.from('directus_users')
-			.whereNotIn('directus_users.id', excludeKeys)
-			.andWhere({ 'directus_roles.admin_access': true })
-			.andWhere({ 'directus_users.status': 'active' })
-			.leftJoin('directus_roles', 'directus_users.role', 'directus_roles.id')
-			.first();
-
-		const otherAdminUsersCount = +(otherAdminUsers?.count || 0);
-
-		if (otherAdminUsersCount === 0) {
-			throw new UnprocessableContentError({ reason: `You can't change the active status of the last admin user` });
 		}
 	}
 
@@ -262,32 +228,6 @@ export class UsersService extends ItemsService {
 	 */
 	override async updateMany(keys: PrimaryKey[], data: Partial<Item>, opts?: MutationOptions): Promise<PrimaryKey[]> {
 		try {
-			if (data['role']) {
-				/*
-				 * data['role'] has the following cases:
-				 * - a string with existing role id
-				 * - an object with existing role id for GraphQL mutations
-				 * - an object with data for new role
-				 */
-				const role = data['role']?.id ?? data['role'];
-
-				let newRole;
-
-				if (typeof role === 'string') {
-					newRole = await this.knex.select('admin_access').from('directus_roles').where('id', role).first();
-				} else {
-					newRole = role;
-				}
-
-				if (!newRole?.admin_access) {
-					await this.checkRemainingAdminExistence(keys);
-				}
-			}
-
-			if (data['status'] !== undefined && data['status'] !== 'active') {
-				await this.checkRemainingActiveAdmin(keys);
-			}
-
 			if (data['email']) {
 				if (keys.length > 1) {
 					throw new RecordNotUniqueError({
@@ -342,12 +282,6 @@ export class UsersService extends ItemsService {
 	 * Delete multiple users by primary key
 	 */
 	override async deleteMany(keys: PrimaryKey[], opts?: MutationOptions): Promise<PrimaryKey[]> {
-		try {
-			await this.checkRemainingAdminExistence(keys);
-		} catch (err: any) {
-			(opts || (opts = {})).preMutationError = err;
-		}
-
 		// Manual constraint, see https://github.com/directus/directus/pull/19912
 		await this.knex('directus_notifications').update({ sender: null }).whereIn('sender', keys);
 		await this.knex('directus_versions').update({ user_updated: null }).whereIn('user_updated', keys);
@@ -649,7 +583,7 @@ export class UsersService extends ItemsService {
 			knex: this.knex,
 			schema: this.schema,
 			accountability: {
-				...(this.accountability ?? { role: null }),
+				...(this.accountability ?? createDefaultAccountability()),
 				admin: true, // We need to skip permissions checks for the update call below
 			},
 		});

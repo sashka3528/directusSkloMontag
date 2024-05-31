@@ -1,6 +1,8 @@
 import type { Accountability, SchemaOverview } from '@directus/types';
 import type { Knex } from 'knex';
-import { getPermissions } from './get-permissions.js';
+import { fetchRolesTree } from '../permissions/lib/fetch-roles-tree.js';
+import { fetchGlobalAccess } from '../permissions/modules/fetch-global-access/fetch-global-access.js';
+import { createDefaultAccountability } from '../permissions/utils/create-default-accountability.js';
 
 export async function getAccountabilityForRole(
 	role: null | string,
@@ -10,44 +12,25 @@ export async function getAccountabilityForRole(
 		database: Knex;
 	},
 ): Promise<Accountability> {
-	let generatedAccountability: Accountability | null = context.accountability;
+	let generatedAccountability: Accountability | null;
 
 	if (role === null) {
-		generatedAccountability = {
-			role: null,
-			user: null,
-			admin: false,
-			app: false,
-		};
-
-		generatedAccountability.permissions = await getPermissions(generatedAccountability, context.schema);
+		generatedAccountability = createDefaultAccountability();
 	} else if (role === 'system') {
-		generatedAccountability = {
-			user: null,
-			role: null,
+		generatedAccountability = createDefaultAccountability({
 			admin: true,
 			app: true,
-			permissions: [],
-		};
+		});
 	} else {
-		const roleInfo = await context.database
-			.select(['app_access', 'admin_access'])
-			.from('directus_roles')
-			.where({ id: role })
-			.first();
+		const roles = await fetchRolesTree(role, context.database);
+		const globalAccess = await fetchGlobalAccess(context.database, roles);
 
-		if (!roleInfo) {
-			throw new Error(`Configured role "${role}" isn't a valid role ID or doesn't exist.`);
-		}
-
-		generatedAccountability = {
+		generatedAccountability = createDefaultAccountability({
 			role,
+			roles,
 			user: null,
-			admin: roleInfo.admin_access === 1 || roleInfo.admin_access === '1' || roleInfo.admin_access === true,
-			app: roleInfo.app_access === 1 || roleInfo.app_access === '1' || roleInfo.app_access === true,
-		};
-
-		generatedAccountability.permissions = await getPermissions(generatedAccountability, context.schema);
+			...globalAccess,
+		});
 	}
 
 	return generatedAccountability;

@@ -1,8 +1,8 @@
 import {
-	KNEX_TYPES,
-	REGEX_BETWEEN_PARENS,
 	DEFAULT_NUMERIC_PRECISION,
 	DEFAULT_NUMERIC_SCALE,
+	KNEX_TYPES,
+	REGEX_BETWEEN_PARENS,
 } from '@directus/constants';
 import { ForbiddenError, InvalidPayloadError } from '@directus/errors';
 import type { Column, SchemaInspector } from '@directus/schema';
@@ -19,6 +19,9 @@ import type { Helpers } from '../database/helpers/index.js';
 import { getHelpers } from '../database/helpers/index.js';
 import getDatabase, { getSchemaInspector } from '../database/index.js';
 import emitter from '../emitter.js';
+import { fetchPermissions } from '../permissions/lib/fetch-permissions.js';
+import { fetchPolicies } from '../permissions/lib/fetch-policies.js';
+import { validateAccess } from '../permissions/modules/validate-access/validate-access.js';
 import type { AbstractServiceOptions, ActionEventParams, MutationOptions } from '../types/index.js';
 import getDefaultValue from '../utils/get-default-value.js';
 import { getSystemFieldRowsWithAuthProviders } from '../utils/get-field-system-rows.js';
@@ -59,17 +62,21 @@ export class FieldsService {
 		this.systemCache = systemCache;
 	}
 
-	private get hasReadAccess() {
-		return !!this.accountability?.permissions?.find((permission) => {
-			return permission.collection === 'directus_fields' && permission.action === 'read';
-		});
-	}
-
 	async readAll(collection?: string): Promise<Field[]> {
 		let fields: FieldMeta[];
 
-		if (this.accountability && this.accountability.admin !== true && this.hasReadAccess === false) {
-			throw new ForbiddenError();
+		if (this.accountability) {
+			await validateAccess(
+				{
+					accountability: this.accountability,
+					action: 'read',
+					collection: 'directus_fields',
+				},
+				{
+					schema: this.schema,
+					knex: this.knex,
+				},
+			);
 		}
 
 		const nonAuthorizedItemsService = new ItemsService('directus_fields', {
@@ -161,9 +168,21 @@ export class FieldsService {
 
 		// Filter the result so we only return the fields you have read access to
 		if (this.accountability && this.accountability.admin !== true) {
-			const permissions = this.accountability.permissions!.filter((permission) => {
-				return permission.action === 'read';
-			});
+			const policies = await fetchPolicies(this.accountability, { knex: this.knex, schema: this.schema });
+
+			const permissions = await fetchPermissions(
+				collection
+					? {
+							action: 'read',
+							policies,
+							collections: [collection],
+					  }
+					: {
+							action: 'read',
+							policies,
+					  },
+				{ knex: this.knex, schema: this.schema },
+			);
 
 			const allowedFieldsInCollection: Record<string, string[]> = {};
 
@@ -198,20 +217,39 @@ export class FieldsService {
 	}
 
 	async readOne(collection: string, field: string): Promise<Record<string, any>> {
-		if (this.accountability && this.accountability.admin !== true) {
-			if (this.hasReadAccess === false) {
-				throw new ForbiddenError();
+		if (this.accountability) {
+			await validateAccess(
+				{
+					accountability: this.accountability,
+					action: 'read',
+					collection,
+				},
+				{
+					schema: this.schema,
+					knex: this.knex,
+				},
+			);
+
+			const policies = await fetchPolicies(this.accountability, { knex: this.knex, schema: this.schema });
+
+			const permissions = await fetchPermissions(
+				{ action: 'read', policies, collections: [collection] },
+				{ knex: this.knex, schema: this.schema },
+			);
+
+			let hasAccess = false;
+
+			for (const permission of permissions) {
+				if (permission.fields) {
+					if (permission.fields.includes('*') || permission.fields.includes(field)) {
+						hasAccess = true;
+						break;
+					}
+				}
 			}
 
-			const permissions = this.accountability.permissions!.find((permission) => {
-				return permission.action === 'read' && permission.collection === collection;
-			});
-
-			if (!permissions || !permissions.fields) throw new ForbiddenError();
-
-			if (permissions.fields.includes('*') === false) {
-				const allowedFields = permissions.fields;
-				if (allowedFields.includes(field) === false) throw new ForbiddenError();
+			if (!hasAccess) {
+				throw new ForbiddenError();
 			}
 		}
 
