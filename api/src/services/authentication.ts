@@ -73,7 +73,7 @@ export class AuthenticationService {
 		}
 
 		const user = await this.knex
-			.select<User & { tfa_secret: string | null }>(
+			.select<User & { tfa_secret: string | null; enforce_tfa: boolean | null }>(
 				'u.id',
 				'u.first_name',
 				'u.last_name',
@@ -83,6 +83,7 @@ export class AuthenticationService {
 				'u.role',
 				'r.admin_access',
 				'r.app_access',
+				'r.enforce_tfa',
 				'u.tfa_secret',
 				'u.provider',
 				'u.external_identifier',
@@ -178,7 +179,10 @@ export class AuthenticationService {
 			throw e;
 		}
 
-		if (user.tfa_secret && !options?.otp) {
+		const requiresTfa = user.enforce_tfa || user.tfa_secret;
+		const hasTfa = user.tfa_secret && options?.otp;
+
+		if (requiresTfa && !hasTfa) {
 			emitStatus('fail');
 			await stall(STALL_TIME, timeStart);
 			throw new InvalidOtpError();
