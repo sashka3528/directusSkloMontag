@@ -936,14 +936,14 @@ importers:
         specifier: 0.0.2
         version: 0.0.2
       typedoc-plugin-markdown:
-        specifier: 4.0.0-next.53
-        version: 4.0.0-next.53(typedoc@0.25.13(typescript@5.4.5))
+        specifier: 4.0.3
+        version: 4.0.3(typedoc@0.25.13(typescript@5.4.5))
       typedoc-plugin-zod:
         specifier: 1.1.2
         version: 1.1.2(typedoc@0.25.13(typescript@5.4.5))
       typedoc-vitepress-theme:
         specifier: 1.0.0-next.10
-        version: 1.0.0-next.10(typedoc-plugin-markdown@4.0.0-next.53(typedoc@0.25.13(typescript@5.4.5)))
+        version: 1.0.0-next.10(typedoc-plugin-markdown@4.0.3(typedoc@0.25.13(typescript@5.4.5)))
       typescript:
         specifier: 5.4.5
         version: 5.4.5
@@ -11043,8 +11043,8 @@ packages:
   typedoc-plugin-frontmatter@0.0.2:
     resolution: {integrity: sha512-xPw76L4S4/zbd01Tt89CVsJdPiMxztlmkXaA2Wu/l0KEbIrsqSHPv/sGsPI1O+pkZrSpaFr94qLA3ls1MrpKKw==}
 
-  typedoc-plugin-markdown@4.0.0-next.53:
-    resolution: {integrity: sha512-vESy94SQV77EaDALA7WvLYPGtPKAuDtqhtShZA6sNs+OxkW8Uh+DoZ5Q6gpgu0MnIkLijHnv038kNP87Gl2vpw==}
+  typedoc-plugin-markdown@4.0.3:
+    resolution: {integrity: sha512-0tZbeVGGCd4+lpoIX+yHWgUfyaLZCQCgJOpuVdTtOtD3+jKaedJ4sl/tkNaYBPeWVKiyDkSHfGuHkq53jlzIFg==}
     peerDependencies:
       typedoc: 0.25.x
 
@@ -22654,7 +22654,7 @@ snapshots:
     dependencies:
       yaml: 2.3.4
 
-  typedoc-plugin-markdown@4.0.0-next.53(typedoc@0.25.13(typescript@5.4.5)):
+  typedoc-plugin-markdown@4.0.3(typedoc@0.25.13(typescript@5.4.5)):
     dependencies:
       typedoc: 0.25.13(typescript@5.4.5)
 
@@ -22662,9 +22662,9 @@ snapshots:
     dependencies:
       typedoc: 0.25.13(typescript@5.4.5)
 
-  typedoc-vitepress-theme@1.0.0-next.10(typedoc-plugin-markdown@4.0.0-next.53(typedoc@0.25.13(typescript@5.4.5))):
+  typedoc-vitepress-theme@1.0.0-next.10(typedoc-plugin-markdown@4.0.3(typedoc@0.25.13(typescript@5.4.5))):
     dependencies:
-      typedoc-plugin-markdown: 4.0.0-next.53(typedoc@0.25.13(typescript@5.4.5))
+      typedoc-plugin-markdown: 4.0.3(typedoc@0.25.13(typescript@5.4.5))
 
   typedoc@0.25.13(typescript@5.4.5):
     dependencies:
